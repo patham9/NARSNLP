@@ -23,11 +23,50 @@
  * """
 
 import re
-sentence = " the green cat quickly eats the blue mouse in the old house "
-typetext = " DET_1 ADJ_1 N_1 ADV_1 V_1 DET_2 ADJ_2 N_2 PREP_1 DET_3 ADJ_3 N_3 "
-wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
-print("//" + sentence)
-print("//" + typetext)
+import sys
+import time
+import subprocess
+import nltk as nltk
+from nltk import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords
+from nltk import WordNetLemmatizer
+from nltk.corpus import wordnet
+
+#nltk.download('punkt')
+#nltk.download('averaged_perceptron_tagger')
+#nltk.download('universal_tagset')
+#nltk.download('wordnet')
+
+#convert universal tag set to the wordnet word types
+def wordnet_tag(tag):
+    if tag == "ADJ":
+        return wordnet.ADJ
+    elif tag == "VERB":
+        return wordnet.VERB
+    elif tag == "NOUN":
+        return wordnet.NOUN
+    elif tag == 'ADV':
+        return wordnet.ADV
+    else:          
+        return wordnet.NOUN #default
+
+#pos-tag the words in the input sentence, and lemmatize them thereafter using Wordnet
+def words_and_types(text):
+    tokens = [word.lower() for word in word_tokenize(text) if word.isalpha()]
+    wordtypes_ordered = nltk.pos_tag(tokens, tagset='universal')
+    wordtypes = dict(wordtypes_ordered)
+    lemma = WordNetLemmatizer()
+    tokens = [lemma.lemmatize(word, pos = wordnet_tag(wordtypes[word])) for word in tokens]
+    wordtypes = dict([(tokens[i], wordtypes_ordered[i][1]) for i in range(len(tokens))])
+    sys.stdout.flush()
+    indexes = {} #index for each wordtype
+    indexed_wordtypes = []
+    for token in tokens:
+        if wordtypes[token] not in indexes:
+            indexes[wordtypes[token]] = 0
+        indexes[wordtypes[token]] += 1
+        indexed_wordtypes.append(wordtypes[token] + "_" + str(indexes[wordtypes[token]]))
+    return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
 
 def subsModifiers(schema, type):
     m = re.match(schema, type)
@@ -40,36 +79,67 @@ def subsModifiers(schema, type):
     return subject
 
 def getWord(type):
-    #ADJ_N -> ([ADJ] & N):
-    type = subsModifiers(r"ADJ_N_([0-9])", type)
-    #ADV_V -> ([ADV] & V)
-    type = subsModifiers(r"ADV_V_([0-9])", type)
+    #ADJ_NOUN -> ([ADJ] & NOUN):
+    type = subsModifiers(r"ADJ_NOUN_([0-9])", type)
+    #ADV_VERB -> ([ADV] & VERB)
+    type = subsModifiers(r"ADV_VERB_([0-9])", type)
     return wordType.get(type, type)
+    
+def sub(pattern, replacement, typetext):
+    return re.sub(pattern, replacement, typetext)
 
 def reduceTypetext(typetext, toNarsese=True):
     #DET -> .:
-    typetext = re.sub(r" DET_([0-9]) ", r" ", typetext)
-    #ADJ N -> ADJ_N:
-    typetext = re.sub(r" ADJ_([0-9]) N_([0-9]) ", r" ADJ_N_\2 ", typetext)
-    #N -> ADJ_N:
-    typetext = re.sub(r" N_([0-9]) ", r" ADJ_N_\1 ", typetext)
-    #ADV V -> ADV_V:
-    typetext = re.sub(r" ADV_([0-9]) V_([0-9]) ", r" ADV_V_\2 ", typetext)
-    #V -> ADV_V:
-    typetext = re.sub(r" V_([0-9]) ", r" ADJ_V_\1 ", typetext)
-    #ADJ_N_1 ADV_V_1 ADJ_N_2 PREP_1 ADJ_N_3 -> ADJ_N_1 ADV_V_1 ADJ_N_2 , ADJ_N_1 PREP_1 ADJ_N_3 , ADJ_N_2 PREP_1 ADJ_N_3 (THIS ONE SHOULD BE LEARNED!)
-    typetext = re.sub(r" ADJ_N_1 ADV_V_1 ADJ_N_2 PREP_1 ADJ_N_3 ", r" ADJ_N_1 ADV_V_1 ADJ_N_2 , ADJ_N_1 PREP_1 ADJ_N_3 , ADJ_N_2 PREP_1 ADJ_N_3 ", typetext)
+    typetext = sub(r" DET_([0-9]) ", r" ", typetext)
+    #ADJ N -> ADJ_NOUN:
+    typetext = sub(r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 ", typetext)
+    #N -> ADJ_NOUN:
+    typetext = sub(r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 ", typetext)
+    #ADV V -> ADV_VERB:
+    typetext = sub(r" ADV_([0-9]) VERB_([0-9]) ", r" ADV_VERB_\2 ", typetext)
+    #V -> ADV_VERB:
+    typetext = sub(r" VERB_([0-9]) ", r" ADJ_VERB_\1 ", typetext)
+    #ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 -> ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 (THIS ONE SHOULD BE LEARNED!)
+    #typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
     if toNarsese:
-        #ADJ_N ADV_V ADJ_N -> <(ADJ_N * ADJ_N) --> ADV_V>
-        typetext = re.sub(r" ADJ_N_([0-9]) ADV_V_([0-9]) ADJ_N_([0-9]) ", r" <( ADJ_N_\1 * ADJ_N_\3 ) --> ADV_V_\2 > ", typetext)
-        #ADJ_N PREP ADJ_N -> <(ADJ_N * ADJ_N) --> PREP>
-        typetext = re.sub(r" ADJ_N_([0-9]) PREP_([0-9]) ADJ_N_([0-9]) ", r" <( ADJ_N_\1 * ADJ_N_\3 ) --> PREP_\2 > ", typetext)
+        #ADJ_NOUN ADV_VERB ADJ_NOUN -> <(ADJ_NOUN * ADJ_NOUN) --> ADV_VERB>
+        typetext = sub(r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", typetext)
+        #ADJ_NOUN ADP ADJ_NOUN -> <(ADJ_NOUN * ADJ_NOUN) --> ADP>
+        typetext = sub(r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", typetext)
     return typetext
 
-typetext = reduceTypetext(typetext)
-print("//" + typetext)
-for y in " ".join([getWord(x) for x in typetext.split(" ")]).split(" , "):
-    if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
-        print("What? Tell \"" + sentence.strip() + "\" in simple sentences:")
-        break
-    print(y.strip() + ". :|:")
+while True:
+    line = " " + input().rstrip("\n") + " "
+    print(line.rstrip("\n"))
+    sentence = " the green cat quickly eats the yellow mouse in the old house "
+    #sentence = line
+    print(words_and_types(sentence)[2])
+    typetext = words_and_types(sentence)[2] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
+    wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
+    typeWord = dict(zip(sentence.split(" "), typetext.split(" ")))
+    print("//" + sentence)
+    print("//" + typetext)
+    typetextNarsese = reduceTypetext(typetext)
+    typetextReduced = reduceTypetext(typetext, toNarsese = False)
+    print("//" + typetextNarsese)
+    for y in " ".join([getWord(x) for x in typetextNarsese.split(" ")]).split(" , "):
+        if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
+            print("What? Tell \"" + sentence.strip() + "\" in simple sentences:")
+            
+            sentence2 = " the green cat quickly eats the yellow mouse "
+            #print(sentence2)
+            sentence3 = " the green cat in the old house "
+            #print(sentence3)
+            sentence4 = " the yellow mouse in the old house "
+            #print(sentence4)
+            L = [sentence2, sentence3, sentence4]
+            #L = []
+            while True:
+                s = " " + input().rstrip("\n") + " "
+                if s.strip() == "":
+                    break
+                L.append(s)
+            mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x, "") for x in part.split(" ") if x.strip() != ""]) + " ", toNarsese = False) for part in L])
+            print("( r\"" + reduceTypetext(typetextReduced, toNarsese = False) + "\", r\"" + mapped + "\")")
+            break
+        print(y.strip() + ". :|:")
