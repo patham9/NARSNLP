@@ -32,10 +32,10 @@ from nltk.corpus import stopwords
 from nltk import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-#nltk.download('punkt')
-#nltk.download('averaged_perceptron_tagger')
-#nltk.download('universal_tagset')
-#nltk.download('wordnet')
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('universal_tagset')
+nltk.download('wordnet')
 
 #convert universal tag set to the wordnet word types
 def wordnet_tag(tag):
@@ -68,44 +68,46 @@ def words_and_types(text):
         indexed_wordtypes.append(wordtypes[token] + "_" + str(indexes[wordtypes[token]]))
     return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
 
-def subsModifiers(schema, type):
-    m = re.match(schema, type)
+#Return modified concrete word term ([modified] & term) if term was modified (by adjective or adverb), else return term
+def modifyWordTerm(schema, term):
+    m = re.match(schema, term)
     if not m:
-        return type
-    modifier = type.split("_")[0] + "_" + m.group(1)
-    subject = type.split("_")[1] + "_" + m.group(1)
+        return term
+    modifier = term.split("_")[0] + "_" + m.group(1)
+    subject = term.split("_")[1] + "_" + m.group(1)
     if modifier in wordType:
         return "([ " + wordType[modifier] + " ] & " + wordType[subject] + " )"
     return subject
 
-def getWord(type):
+#Return the concrete word (compound) term
+def getWordTerm(term):
     #ADJ_NOUN -> ([ADJ] & NOUN):
-    type = subsModifiers(r"ADJ_NOUN_([0-9])", type)
+    term = modifyWordTerm(r"ADJ_NOUN_([0-9])", term)
     #ADV_VERB -> ([ADV] & VERB)
-    type = subsModifiers(r"ADV_VERB_([0-9])", type)
-    return wordType.get(type, type)
-    
-def sub(pattern, replacement, typetext):
-    return re.sub(pattern, replacement, typetext)
+    term = modifyWordTerm(r"ADV_VERB_([0-9])", term)
+    return wordType.get(term, term)
+
+InnateSyntacticalTransformations = [
+    (r" DET_([0-9]) ", r" "),
+    (r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 "),
+    (r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 "),
+    (r" ADV_([0-9]) VERB_([0-9]) ", r" ADV_VERB_\2 "),
+    (r" VERB_([0-9]) ", r" ADJ_VERB_\1 ")
+]
+
+InnateRepresentRelations = [
+    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > "),
+    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ")
+]
 
 def reduceTypetext(typetext, toNarsese=True):
-    #DET -> .:
-    typetext = sub(r" DET_([0-9]) ", r" ", typetext)
-    #ADJ N -> ADJ_NOUN:
-    typetext = sub(r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 ", typetext)
-    #N -> ADJ_NOUN:
-    typetext = sub(r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 ", typetext)
-    #ADV V -> ADV_VERB:
-    typetext = sub(r" ADV_([0-9]) VERB_([0-9]) ", r" ADV_VERB_\2 ", typetext)
-    #V -> ADV_VERB:
-    typetext = sub(r" VERB_([0-9]) ", r" ADJ_VERB_\1 ", typetext)
+    for (a,b) in InnateSyntacticalTransformations:
+        typetext = re.sub(a, b, typetext)
     #ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 -> ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 (THIS ONE SHOULD BE LEARNED!)
-    #typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
+    typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
     if toNarsese:
-        #ADJ_NOUN ADV_VERB ADJ_NOUN -> <(ADJ_NOUN * ADJ_NOUN) --> ADV_VERB>
-        typetext = sub(r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", typetext)
-        #ADJ_NOUN ADP ADJ_NOUN -> <(ADJ_NOUN * ADJ_NOUN) --> ADP>
-        typetext = sub(r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", typetext)
+        for (a,b) in InnateRepresentRelations:
+            typetext = re.sub(a, b, typetext)
     return typetext
 
 while True:
@@ -122,7 +124,7 @@ while True:
     typetextNarsese = reduceTypetext(typetext)
     typetextReduced = reduceTypetext(typetext, toNarsese = False)
     print("//" + typetextNarsese)
-    for y in " ".join([getWord(x) for x in typetextNarsese.split(" ")]).split(" , "):
+    for y in " ".join([getWordTerm(x) for x in typetextNarsese.split(" ")]).split(" , "):
         if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
             print("What? Tell \"" + sentence.strip() + "\" in simple sentences:")
             
