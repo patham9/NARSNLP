@@ -87,27 +87,25 @@ StatementRepresentRelations = [
     (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
     (r' ADJ_NOUN_1 BE_2 ADP_2 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_2 ADJ_NOUN_3 ', (1.0, 0.45)),
     #subject-predicate-object relations to Narsese:
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
 ]
 
-#Return what the word represents
-def modifyWordTerm(schema, term, compound):
-    m = re.match(schema, term)
-    if not m:
-        return term
-    modifier = term.split("_")[0] + "_" + m.group(1)
-    atomic =  term.split("_")[1] + "_" + m.group(1)
-    if modifier in wordType:
-        return compound % (wordType[modifier], wordType[atomic]) 
-    return atomic
-
 #Return the concrete word (compound) term
 def getWordTerm(term):
-    for (a, b, _) in TermRepresentRelations:
-        term = modifyWordTerm(a, term, b)
+    for (schema, compound, _) in TermRepresentRelations:
+        m = re.match(schema, term)
+        if not m:
+            continue
+        modifier = term.split("_")[0] + "_" + m.group(1)
+        atomic =  term.split("_")[1] + "_" + m.group(1)
+        if modifier in wordType:
+            term = compound % (wordType[modifier], wordType[atomic]) 
+        else:
+            term = atomic
     return wordType.get(term, term)
 
 def reduceTypetext(typetext, toNarsese=True):
