@@ -32,10 +32,10 @@ from nltk.corpus import stopwords
 from nltk import WordNetLemmatizer
 from nltk.corpus import wordnet
 
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('universal_tagset')
-nltk.download('wordnet')
+#nltk.download('punkt')
+#nltk.download('averaged_perceptron_tagger')
+#nltk.download('universal_tagset')
+#nltk.download('wordnet')
 
 #convert universal tag set to the wordnet word types
 def wordnet_tag(tag):
@@ -57,14 +57,14 @@ def sentence_and_types(text):
     wordtypes = dict(wordtypes_ordered)
     lemma = WordNetLemmatizer()
     tokens = [lemma.lemmatize(word, pos = wordnet_tag(wordtypes[word])) for word in tokens]
-    wordtypes = dict([(tokens[i], wordtypes_ordered[i][1] if tokens[i] != "what" else "?1") for i in range(len(tokens))])
-    sys.stdout.flush()
+    wordtypes = dict([(tokens[i], wordtypes_ordered[i][1]) for i in range(len(tokens))])
+    wordtypes = {key : ("BE" if key == "be" else ("NOUN" if value=="PRON" else value)) for (key,value) in wordtypes.items()}
     indexed_wordtypes = []
     i = 0
     lasttoken = None
     for token in tokens:
-        if lasttoken == None or wordtypes[lasttoken] == "NOUN":
-            i += 1
+        if lasttoken == None or wordtypes[lasttoken] == "NOUN" or wordtypes[token] == "ADP": #adjectives don't cross these
+            i += 1 #each noun or new article ends previous ADJ_NOUN index
         indexed_wordtypes.append(wordtypes[token] + "_" + str(i))
         lasttoken = token
     return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
@@ -83,10 +83,14 @@ TermRepresentRelations = [
 ]
 
 StatementRepresentRelations = [
-    (' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', ' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
+    #syntactic:
+    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
+    (r' ADJ_NOUN_1 BE_2 ADP_2 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_2 ADJ_NOUN_3 ', (1.0, 0.45)),
+    #subject-predicate-object relations to Narsese:
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
 ]
 
 #Return what the word represents
@@ -104,8 +108,6 @@ def modifyWordTerm(schema, term, compound):
 def getWordTerm(term):
     for (a, b, _) in TermRepresentRelations:
         term = modifyWordTerm(a, term, b)
-    if term.startswith("PRON_"):
-        return "?1"
     return wordType.get(term, term)
 
 def reduceTypetext(typetext, toNarsese=True):
@@ -117,23 +119,19 @@ def reduceTypetext(typetext, toNarsese=True):
     return typetext
 
 while True:
-    line = " " + input().rstrip("\n") + " "
-    print(line.rstrip("\n"))
-    #sentence = " the green cat quickly eats the yellow mouse in the old house "
-    sentence = line
+    line = " " + input().rstrip("\n") + " " #" the green cat quickly eats the yellow mouse in the old house "
+    isQuestion = line.strip().endswith("?")
+    sentence = line.replace("?", "").replace(".", "").replace(",", "")
     s_and_T = sentence_and_types(sentence)
     sentence = s_and_T[0]
-    print(s_and_T[1])
     typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
     wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
     typeWord = dict(zip(sentence.split(" "), typetext.split(" ")))
-    print("//" + sentence)
-    print("//" + typetext)
     typetextNarsese = reduceTypetext(typetext)
     typetextReduced = reduceTypetext(typetext, toNarsese = False)
-    print("//" + typetextNarsese)
+    print("//" + sentence, "\n//" + typetext, "\n//" + typetextNarsese)
     for y in " ".join([getWordTerm(x) for x in typetextNarsese.split(" ")]).split(" , "):
-        if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
+        if not y.strip().startswith("<") or not y.strip().endswith(">") or y.strip().count("<") > 1: #may need better check
             print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
             L = []
             while True:
@@ -147,4 +145,4 @@ while True:
                 print("//Added REPRESENT relation: " + str(REPRESENT))
                 StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
             break
-        print(re.sub(r"<\( ([^:]*) \* ([^:]*) \) --> be >", r"< \1 --> \2 >", y.strip() + ("?. :|:" if "?" in y else ". :|:")).replace("what","?1").replace("who","?1"))
+        print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1"))
