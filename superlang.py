@@ -54,8 +54,11 @@ TermRepresentRelations = [
 
 StatementRepresentRelations = [
     #syntactic transformations:
+    (r' ADJ_NOUN_1 BE_2 ADJ_2 ADP_3 ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 ', r' ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 , ADJ_NOUN_4 BE_2 ADJ_2 ', (1.0, 0.45)), #impl
+    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
+    (r' ADJ_NOUN_1 ADV_VERB_2 PRT_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.45)),
+    (r' ADJ_NOUN_1 BE_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
     (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
-    (r' ADJ_NOUN_1 BE_2 ADP_2 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_2 ADJ_NOUN_3 ', (1.0, 0.45)),
     #subject-predicate-object relations to Narsese:
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
