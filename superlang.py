@@ -136,7 +136,7 @@ while True:
                 if s.strip() == "":
                     break
                 L.append(sentence_and_types(s)[0])
-            mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x, "") for x in part.split(" ") if x.strip() != ""]) + " ", toNarsese = False) for part in L])
+            mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x) for x in part.split(" ") if x.strip() != "" and x in typeWord]) + " ", toNarsese = False) for part in L])
             if mapped.strip() != "":
                 REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.45))
                 print("//Added REPRESENT relation: " + str(REPRESENT))
