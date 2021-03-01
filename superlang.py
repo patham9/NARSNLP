@@ -37,6 +37,33 @@ from nltk.corpus import wordnet
 #nltk.download('universal_tagset')
 #nltk.download('wordnet')
 
+SyntacticalTransformations = [
+    #types of tuples of words with optional members
+    (r" DET_([0-9]*) ", r" "),
+    (r" ADJ_([0-9]*) NOUN_([0-9]*) ", r" ADJ_NOUN_\2 "),
+    (r" NOUN_([0-9]*) ", r" ADJ_NOUN_\1 "),
+    (r" ADV_([0-9]*) VERB_([0-9]*) ", r" ADV_VERB_\2 "),
+    (r" VERB_([0-9]*) ", r" ADV_VERB_\1 ")
+]
+
+TermRepresentRelations = [
+    #subject, predicate, object encoding
+    (r"ADJ_NOUN_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9)),
+    (r"ADV_VERB_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9))
+]
+
+StatementRepresentRelations = [
+    #syntactic transformations:
+    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
+    (r' ADJ_NOUN_1 BE_2 ADP_2 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_2 ADJ_NOUN_3 ', (1.0, 0.45)),
+    #subject-predicate-object relations to Narsese:
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
+]
+
 #convert universal tag set to the wordnet word types
 def wordnet_tag(tag):
     if tag == "ADJ":
@@ -69,31 +96,6 @@ def sentence_and_types(text):
         lasttoken = token
     return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
 
-SyntacticalTransformations = [
-    (r" DET_([0-9]*) ", r" "),
-    (r" ADJ_([0-9]*) NOUN_([0-9]*) ", r" ADJ_NOUN_\2 "),
-    (r" NOUN_([0-9]*) ", r" ADJ_NOUN_\1 "),
-    (r" ADV_([0-9]*) VERB_([0-9]*) ", r" ADV_VERB_\2 "),
-    (r" VERB_([0-9]*) ", r" ADV_VERB_\1 ")
-]
-
-TermRepresentRelations = [
-    (r"ADJ_NOUN_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9)),
-    (r"ADV_VERB_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9))
-]
-
-StatementRepresentRelations = [
-    #syntactic:
-    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
-    (r' ADJ_NOUN_1 BE_2 ADP_2 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_2 ADJ_NOUN_3 ', (1.0, 0.45)),
-    #subject-predicate-object relations to Narsese:
-    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
-]
-
 #Return the concrete word (compound) term
 def getWordTerm(term):
     for (schema, compound, _) in TermRepresentRelations:
@@ -108,39 +110,57 @@ def getWordTerm(term):
             term = atomic
     return wordType.get(term, term)
 
-def reduceTypetext(typetext, toNarsese=True):
+#Apply syntactical reductions and wanted represent relations
+def reduceTypetext(typetext, applyStatementRepresentRelations = False, applyTermRepresentRelations = False):
     for (a,b) in SyntacticalTransformations:
         typetext = re.sub(a, b, typetext)
-    if toNarsese:
+    if applyStatementRepresentRelations:
         for (a,b,_) in StatementRepresentRelations:
             typetext = re.sub(a, b, typetext)
+        if applyTermRepresentRelations:
+            return " ".join([getWordTerm(x) for x in typetext.split(" ")])
     return typetext
 
+#Learn grammar pattern by building correspondence between the words&types in the example sentences with the ones in the sentence which wasn't understood 
+def GrammarLearning(y):
+    global StatementRepresentRelations
+    if not y.strip().startswith("<") or not y.strip().endswith(">") or y.strip().count("<") > 1: #Only if not fully encoded/valid Narsese
+        print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
+        L = []
+        while True:
+            s = " " + input().rstrip("\n") + " "
+            if s.strip() == "":
+                break
+            L.append(sentence_and_types(s)[0])
+        mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x) for x in part.split(" ") if x.strip() != "" and x in typeWord]) + " ") for part in L])
+        if mapped.strip() != "":
+            REPRESENT = ( reduceTypetext(typetextReduced), mapped, (1.0, 0.45))
+            print("//Added REPRESENT relation: " + str(REPRESENT))
+            StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
+        return True
+    return False
+
 while True:
+    #Get sentence, postag and bring it into canonical representation using Wordnet lemmatizer:
     line = " " + input().rstrip("\n") + " " #" the green cat quickly eats the yellow mouse in the old house "
     isQuestion = line.strip().endswith("?")
     sentence = line.replace("?", "").replace(".", "").replace(",", "")
     s_and_T = sentence_and_types(sentence)
-    sentence = s_and_T[0]
-    typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
-    wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
-    typeWord = dict(zip(sentence.split(" "), typetext.split(" ")))
-    typetextNarsese = reduceTypetext(typetext)
-    typetextReduced = reduceTypetext(typetext, toNarsese = False)
+    sentence = s_and_T[0] # canonical sentence (with lemmatized words)
+    typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_2 VERB_2 DET_2 ADJ_2 NOUN_2 ADP_3 DET_3 ADJ_3 NOUN_3 "
+    wordType = dict(zip(typetext.split(" "), sentence.split(" "))) #mappings like cat -> NOUN_1
+    typeWord = dict(zip(sentence.split(" "), typetext.split(" "))) #mappings like NOUN1 -> cat
+    #Transformed typetext taking syntatical relations and represent relations into account:
+    typetextReduced =  reduceTypetext(typetext)
+    typetextNarsese =  reduceTypetext(typetext, applyStatementRepresentRelations = True)
+    typetextConcrete = reduceTypetext(typetext, applyStatementRepresentRelations = True, applyTermRepresentRelations = True).split(" , ")
     print("//" + sentence, "\n//" + typetext, "\n//" + typetextNarsese)
-    for y in " ".join([getWordTerm(x) for x in typetextNarsese.split(" ")]).split(" , "):
-        if not y.strip().startswith("<") or not y.strip().endswith(">") or y.strip().count("<") > 1: #may need better check
-            print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
-            L = []
-            while True:
-                s = " " + input().rstrip("\n") + " "
-                if s.strip() == "":
-                    break
-                L.append(sentence_and_types(s)[0])
-            mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x) for x in part.split(" ") if x.strip() != "" and x in typeWord]) + " ", toNarsese = False) for part in L])
-            if mapped.strip() != "":
-                REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.45))
-                print("//Added REPRESENT relation: " + str(REPRESENT))
-                StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
-            break
-        print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1"))
+    #Check if one of the output representations wasn't fully transformed and demands grammar learning:
+    Input = True
+    for y in typetextConcrete:
+        if GrammarLearning(y.strip()):
+            Input = False
+    #If not we can output the Narsese events for NARS to consume:
+    if Input:
+        for y in typetextConcrete:
+            print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1"))
