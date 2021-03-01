@@ -60,9 +60,13 @@ def sentence_and_types(text):
     wordtypes = dict([(tokens[i], wordtypes_ordered[i][1] if tokens[i] != "what" else "?1") for i in range(len(tokens))])
     sys.stdout.flush()
     indexed_wordtypes = []
-    for i in range(len(tokens)):
-        token = tokens[i]
+    i = 0
+    lasttoken = None
+    for token in tokens:
+        if lasttoken == None or wordtypes[lasttoken] == "NOUN":
+            i += 1
         indexed_wordtypes.append(wordtypes[token] + "_" + str(i))
+        lasttoken = token
     return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
 
 SyntacticalTransformations = [
@@ -79,6 +83,7 @@ TermRepresentRelations = [
 ]
 
 StatementRepresentRelations = [
+    (' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', ' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
@@ -89,7 +94,7 @@ def modifyWordTerm(schema, term, compound):
     m = re.match(schema, term)
     if not m:
         return term
-    modifier = term.split("_")[0] + "_" + str(int(m.group(1))-1)
+    modifier = term.split("_")[0] + "_" + m.group(1)
     atomic =  term.split("_")[1] + "_" + m.group(1)
     if modifier in wordType:
         return compound % (wordType[modifier], wordType[atomic]) 
