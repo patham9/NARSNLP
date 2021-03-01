@@ -107,7 +107,7 @@ def reduceTypetext(typetext, toNarsese=True):
     for (a,b) in SyntacticalTransformations:
         typetext = re.sub(a, b, typetext)
     #ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 -> ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 (THIS ONE SHOULD BE LEARNED!)
-    typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
+    #typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
     if toNarsese:
         for (a,b,_) in StatementRepresentRelations:
             typetext = re.sub(a, b, typetext)
@@ -129,7 +129,7 @@ while True:
     print("//" + typetextNarsese)
     for y in " ".join([getWordTerm(x) for x in typetextNarsese.split(" ")]).split(" , "):
         if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
-            print("What? Tell \"" + sentence.strip() + "\" in simple sentences:")
+            print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
             
             sentence2 = " the green cat quickly eats the yellow mouse "
             #print(sentence2)
@@ -145,6 +145,8 @@ while True:
                     break
                 L.append(s)
             mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x, "") for x in part.split(" ") if x.strip() != ""]) + " ", toNarsese = False) for part in L])
-            print("( r\"" + reduceTypetext(typetextReduced, toNarsese = False) + "\", r\"" + mapped + "\")")
+            REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.9))
+            print("//Added REPRESENT relation: " + str(REPRESENT))
+            StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
             break
         print(y.strip() + ". :|:")
