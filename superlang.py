@@ -68,26 +68,7 @@ def words_and_types(text):
         indexed_wordtypes.append(wordtypes[token] + "_" + str(indexes[wordtypes[token]]))
     return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
 
-#Return modified concrete word term ([modified] & term) if term was modified (by adjective or adverb), else return term
-def modifyWordTerm(schema, term):
-    m = re.match(schema, term)
-    if not m:
-        return term
-    modifier = term.split("_")[0] + "_" + m.group(1)
-    subject = term.split("_")[1] + "_" + m.group(1)
-    if modifier in wordType:
-        return "([ " + wordType[modifier] + " ] & " + wordType[subject] + " )"
-    return subject
-
-#Return the concrete word (compound) term
-def getWordTerm(term):
-    #ADJ_NOUN -> ([ADJ] & NOUN):
-    term = modifyWordTerm(r"ADJ_NOUN_([0-9])", term)
-    #ADV_VERB -> ([ADV] & VERB)
-    term = modifyWordTerm(r"ADV_VERB_([0-9])", term)
-    return wordType.get(term, term)
-
-InnateSyntacticalTransformations = [
+SyntacticalTransformations = [
     (r" DET_([0-9]) ", r" "),
     (r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 "),
     (r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 "),
@@ -95,18 +76,40 @@ InnateSyntacticalTransformations = [
     (r" VERB_([0-9]) ", r" ADJ_VERB_\1 ")
 ]
 
-InnateRepresentRelations = [
-    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > "),
-    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ")
+TermRepresentRelations = [
+    (r"ADJ_NOUN_([0-9])", "([ %s ] & %s )", (1.0, 0.9)),
+    (r"ADV_VERB_([0-9])", "([ %s ] & %s )", (1.0, 0.9))
 ]
 
+StatementRepresentRelations = [
+    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9))
+]
+
+#Return what the word represents
+def modifyWordTerm(schema, term, compound):
+    m = re.match(schema, term)
+    if not m:
+        return term
+    modifier = term.split("_")[0] + "_" + m.group(1)
+    atomic =  term.split("_")[1] + "_" + m.group(1)
+    if modifier in wordType:
+        return compound % (wordType[modifier], wordType[atomic]) 
+    return atomic
+
+#Return the concrete word (compound) term
+def getWordTerm(term):
+    for (a, b, _) in TermRepresentRelations:
+        term = modifyWordTerm(a, term, b)
+    return wordType.get(term, term)
+
 def reduceTypetext(typetext, toNarsese=True):
-    for (a,b) in InnateSyntacticalTransformations:
+    for (a,b) in SyntacticalTransformations:
         typetext = re.sub(a, b, typetext)
     #ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 -> ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 (THIS ONE SHOULD BE LEARNED!)
     typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
     if toNarsese:
-        for (a,b) in InnateRepresentRelations:
+        for (a,b,_) in StatementRepresentRelations:
             typetext = re.sub(a, b, typetext)
     return typetext
 
