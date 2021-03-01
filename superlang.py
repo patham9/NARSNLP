@@ -66,22 +66,23 @@ def words_and_types(text):
     return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
 
 SyntacticalTransformations = [
-    (r" DET_([0-9]) ", r" "),
-    (r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 "),
-    (r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 "),
-    (r" ADV_([0-9]) VERB_([0-9]) ", r" ADV_VERB_\2 "),
-    (r" VERB_([0-9]) ", r" ADV_VERB_\1 ")
+    (r" DET_([0-9]*) ", r" "),
+    (r" ADJ_([0-9]*) NOUN_([0-9]*) ", r" ADJ_NOUN_\2 "),
+    (r" NOUN_([0-9]*) ", r" ADJ_NOUN_\1 "),
+    (r" ADV_([0-9]*) VERB_([0-9]*) ", r" ADV_VERB_\2 "),
+    (r" VERB_([0-9]*) ", r" ADV_VERB_\1 ")
 ]
 
 TermRepresentRelations = [
-    (r"ADJ_NOUN_([0-9])", "([ %s ] & %s )", (1.0, 0.9)),
-    (r"ADV_VERB_([0-9])", "([ %s ] & %s )", (1.0, 0.9))
+    (r"ADJ_NOUN_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9)),
+    (r"ADV_VERB_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9))
 ]
 
 StatementRepresentRelations = [
-    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_([0-9]) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
+    (r" ADJ_NOUN_2 ADV_VERB_4 ADJ_NOUN_7 ADP_8 ADJ_10 NOUN_11 ", r" ADJ_NOUN_2 ADV_VERB_4 ADJ_NOUN_7 , ADJ_NOUN_2 ADP_8 ADJ_10 NOUN_11 , ADJ_NOUN_7 ADP_8 ADJ_10 NOUN_11 ", (1.0, 0.45)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
 ]
 
 #Return what the word represents
@@ -116,7 +117,9 @@ while True:
     print(line.rstrip("\n"))
     #sentence = " the green cat quickly eats the yellow mouse in the old house "
     sentence = line
-    print(words_and_types(sentence)[2])
+    w_and_T = words_and_types(sentence)
+    sentence = " " + " ".join(w_and_T[0])
+    print(w_and_T[2])
     typetext = words_and_types(sentence)[2] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
     wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
     typeWord = dict(zip(sentence.split(" "), typetext.split(" ")))
@@ -140,4 +143,4 @@ while True:
                 print("//Added REPRESENT relation: " + str(REPRESENT))
                 StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
             break
-        print(re.sub(r"<\( ([^:]*) \* ([^:]*) \) --> is >", r"< \1 --> \2 >", y.strip() + ("?. :|:" if "?" in y else ". :|:")).replace("what","?1").replace("who","?1"))
+        print(re.sub(r"<\( ([^:]*) \* ([^:]*) \) --> be >", r"< \1 --> \2 >", y.strip() + ("?. :|:" if "?" in y else ". :|:")).replace("what","?1").replace("who","?1"))
