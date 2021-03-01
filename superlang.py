@@ -51,7 +51,7 @@ def wordnet_tag(tag):
         return wordnet.NOUN #default
 
 #pos-tag the words in the input sentence, and lemmatize them thereafter using Wordnet
-def words_and_types(text):
+def sentence_and_types(text):
     tokens = [word.lower() for word in word_tokenize(text) if word.isalpha()]
     wordtypes_ordered = nltk.pos_tag(tokens, tagset='universal')
     wordtypes = dict(wordtypes_ordered)
@@ -63,7 +63,7 @@ def words_and_types(text):
     for i in range(len(tokens)):
         token = tokens[i]
         indexed_wordtypes.append(wordtypes[token] + "_" + str(i))
-    return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
+    return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
 
 SyntacticalTransformations = [
     (r" DET_([0-9]*) ", r" "),
@@ -79,7 +79,6 @@ TermRepresentRelations = [
 ]
 
 StatementRepresentRelations = [
-    (r" ADJ_NOUN_2 ADV_VERB_4 ADJ_NOUN_7 ADP_8 ADJ_10 NOUN_11 ", r" ADJ_NOUN_2 ADV_VERB_4 ADJ_NOUN_7 , ADJ_NOUN_2 ADP_8 ADJ_10 NOUN_11 , ADJ_NOUN_7 ADP_8 ADJ_10 NOUN_11 ", (1.0, 0.45)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
@@ -117,10 +116,10 @@ while True:
     print(line.rstrip("\n"))
     #sentence = " the green cat quickly eats the yellow mouse in the old house "
     sentence = line
-    w_and_T = words_and_types(sentence)
-    sentence = " " + " ".join(w_and_T[0])
-    print(w_and_T[2])
-    typetext = words_and_types(sentence)[2] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
+    s_and_T = sentence_and_types(sentence)
+    sentence = s_and_T[0]
+    print(s_and_T[1])
+    typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
     wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
     typeWord = dict(zip(sentence.split(" "), typetext.split(" ")))
     print("//" + sentence)
@@ -136,7 +135,7 @@ while True:
                 s = " " + input().rstrip("\n") + " "
                 if s.strip() == "":
                     break
-                L.append(s)
+                L.append(sentence_and_types(s)[0])
             mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x, "") for x in part.split(" ") if x.strip() != ""]) + " ", toNarsese = False) for part in L])
             if mapped.strip() != "":
                 REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.45))
