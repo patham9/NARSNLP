@@ -57,15 +57,12 @@ def words_and_types(text):
     wordtypes = dict(wordtypes_ordered)
     lemma = WordNetLemmatizer()
     tokens = [lemma.lemmatize(word, pos = wordnet_tag(wordtypes[word])) for word in tokens]
-    wordtypes = dict([(tokens[i], wordtypes_ordered[i][1]) for i in range(len(tokens))])
+    wordtypes = dict([(tokens[i], wordtypes_ordered[i][1] if tokens[i] != "what" else "?1") for i in range(len(tokens))])
     sys.stdout.flush()
-    indexes = {} #index for each wordtype
     indexed_wordtypes = []
-    for token in tokens:
-        if wordtypes[token] not in indexes:
-            indexes[wordtypes[token]] = 0
-        indexes[wordtypes[token]] += 1
-        indexed_wordtypes.append(wordtypes[token] + "_" + str(indexes[wordtypes[token]]))
+    for i in range(len(tokens)):
+        token = tokens[i]
+        indexed_wordtypes.append(wordtypes[token] + "_" + str(i))
     return tokens, wordtypes, " " + " ".join(indexed_wordtypes) + " "
 
 SyntacticalTransformations = [
@@ -83,7 +80,8 @@ TermRepresentRelations = [
 
 StatementRepresentRelations = [
     (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9))
+    (r" ADJ_NOUN_([0-9]) ADP_([0-9]) ADJ_NOUN_([0-9]) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
+    (r" ADJ_NOUN_([0-9]) ADV_VERB_([0-9]) ADJ_([0-9]) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
 ]
 
 #Return what the word represents
@@ -91,7 +89,7 @@ def modifyWordTerm(schema, term, compound):
     m = re.match(schema, term)
     if not m:
         return term
-    modifier = term.split("_")[0] + "_" + m.group(1)
+    modifier = term.split("_")[0] + "_" + str(int(m.group(1))-1)
     atomic =  term.split("_")[1] + "_" + m.group(1)
     if modifier in wordType:
         return compound % (wordType[modifier], wordType[atomic]) 
@@ -101,6 +99,8 @@ def modifyWordTerm(schema, term, compound):
 def getWordTerm(term):
     for (a, b, _) in TermRepresentRelations:
         term = modifyWordTerm(a, term, b)
+    if term.startswith("PRON_"):
+        return "?1"
     return wordType.get(term, term)
 
 def reduceTypetext(typetext, toNarsese=True):
@@ -140,4 +140,4 @@ while True:
                 print("//Added REPRESENT relation: " + str(REPRESENT))
                 StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
             break
-        print(y.strip() + ". :|:")
+        print(re.sub(r"<\( ([^:]*) \* ([^:]*) \) --> is >", r"< \1 --> \2 >", y.strip() + ("?. :|:" if "?" in y else ". :|:")).replace("what","?1").replace("who","?1"))
