@@ -73,7 +73,7 @@ SyntacticalTransformations = [
     (r" ADJ_([0-9]) NOUN_([0-9]) ", r" ADJ_NOUN_\2 "),
     (r" NOUN_([0-9]) ", r" ADJ_NOUN_\1 "),
     (r" ADV_([0-9]) VERB_([0-9]) ", r" ADV_VERB_\2 "),
-    (r" VERB_([0-9]) ", r" ADJ_VERB_\1 ")
+    (r" VERB_([0-9]) ", r" ADV_VERB_\1 ")
 ]
 
 TermRepresentRelations = [
@@ -106,8 +106,6 @@ def getWordTerm(term):
 def reduceTypetext(typetext, toNarsese=True):
     for (a,b) in SyntacticalTransformations:
         typetext = re.sub(a, b, typetext)
-    #ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 -> ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 (THIS ONE SHOULD BE LEARNED!)
-    #typetext = re.sub(r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", r" ADJ_NOUN_1 ADV_VERB_1 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_1 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_1 ADJ_NOUN_3 ", typetext)
     if toNarsese:
         for (a,b,_) in StatementRepresentRelations:
             typetext = re.sub(a, b, typetext)
@@ -116,8 +114,8 @@ def reduceTypetext(typetext, toNarsese=True):
 while True:
     line = " " + input().rstrip("\n") + " "
     print(line.rstrip("\n"))
-    sentence = " the green cat quickly eats the yellow mouse in the old house "
-    #sentence = line
+    #sentence = " the green cat quickly eats the yellow mouse in the old house "
+    sentence = line
     print(words_and_types(sentence)[2])
     typetext = words_and_types(sentence)[2] #" DET_1 ADJ_1 NOUN_1 ADV_1 VERB_1 DET_2 ADJ_2 NOUN_2 ADP_1 DET_3 ADJ_3 NOUN_3 "
     wordType = dict(zip(typetext.split(" "), sentence.split(" ")))
@@ -130,23 +128,16 @@ while True:
     for y in " ".join([getWordTerm(x) for x in typetextNarsese.split(" ")]).split(" , "):
         if not y.strip().startswith("<") or not y.strip().endswith(">"): #may need better check
             print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
-            
-            sentence2 = " the green cat quickly eats the yellow mouse "
-            #print(sentence2)
-            sentence3 = " the green cat in the old house "
-            #print(sentence3)
-            sentence4 = " the yellow mouse in the old house "
-            #print(sentence4)
-            L = [sentence2, sentence3, sentence4]
-            #L = []
+            L = []
             while True:
                 s = " " + input().rstrip("\n") + " "
                 if s.strip() == "":
                     break
                 L.append(s)
             mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x, "") for x in part.split(" ") if x.strip() != ""]) + " ", toNarsese = False) for part in L])
-            REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.9))
-            print("//Added REPRESENT relation: " + str(REPRESENT))
-            StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
+            if mapped.strip() != "":
+                REPRESENT = ( reduceTypetext(typetextReduced, toNarsese = False), mapped, (1.0, 0.9))
+                print("//Added REPRESENT relation: " + str(REPRESENT))
+                StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
             break
         print(y.strip() + ". :|:")
