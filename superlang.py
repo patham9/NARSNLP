@@ -46,6 +46,7 @@ nltk.download('wordnet')
 
 SyntacticalTransformations = [
     #types of tuples of words with optional members
+    (r" VERB_([0-9]*) VERB_([0-9]*) ", r" VERB_\1 ADJ_\2 "), #a hack for the lousy nltk postagger (verbs don't come in succession, and DET would have been detected, so ADJ guess is better)
     (r" DET_([0-9]*) ", r" "),
     (r" ADJ_([0-9]*) NOUN_([0-9]*) ", r" ADJ_NOUN_\2 "),
     (r" NOUN_([0-9]*) ", r" ADJ_NOUN_\1 "),
@@ -168,12 +169,13 @@ while True:
     line = input().rstrip("\n") #"the green cat quickly eats the yellow mouse in the old house"
     isQuestion = line.endswith("?")
     isCommand = line.startswith("*") or line.startswith("//") or line.isdigit() or line.startswith('(') or line.startswith('<')
+    isNegated = " not " in (" " + line + " ")
     if isCommand:
         print(line)
         sys.stdout.flush()
         continue
     #it's a sentence, postag and bring it into canonical representation using Wordnet lemmatizer:
-    sentence = " " + line.replace("?", "").replace(".", "").replace(",", "") + " "
+    sentence = " " + line.replace("?", "").replace(".", "").replace(",", "").replace(" not ", " ") + " "
     s_and_T = sentence_and_types(sentence)
     sentence = s_and_T[0] # canonical sentence (with lemmatized words)
     typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_2 VERB_2 DET_2 ADJ_2 NOUN_2 ADP_3 DET_3 ADJ_3 NOUN_3 "
@@ -194,5 +196,6 @@ while True:
     if Input:
         for y in typetextConcrete.split(" , "):
             TruthString = "" if "DefaultTruth" in sys.argv else " {" + str(Truth[0]) + ", " + str(Truth[1]) + "}"
-            print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1") + TruthString)
+            statement = "(! " + y.strip() + ")" if isNegated else y.strip()
+            print((statement + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1") + TruthString)
             sys.stdout.flush()
