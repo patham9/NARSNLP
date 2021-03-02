@@ -22,6 +22,13 @@
  * THE SOFTWARE.
  * """
 
+# >English input channel for OpenNARS for Applications<
+#  A shallow semantic parser with basic grammar learning ability
+#  by using NAL REPRESENT relations.
+#  Usage: python3 superlang.py [verbose] [DefaultTruth]
+#  where verbose lets it show what language knowledge is utilized
+#  and DefaultTruth omits the calculated truth value in the output
+ 
 import re
 import sys
 import time
@@ -53,12 +60,13 @@ TermRepresentRelations = [
 ]
 
 StatementRepresentRelations = [
-    #syntactic transformations:
-    (r' ADJ_NOUN_1 BE_2 ADJ_2 ADP_3 ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 ', r' ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 , ADJ_NOUN_4 BE_2 ADJ_2 ', (1.0, 0.45)), #impl
-    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
-    (r' ADJ_NOUN_1 ADV_VERB_2 PRT_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.45)),
-    (r' ADJ_NOUN_1 BE_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
-    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.45)),
+    #syntactic transformations: (these are all optional as they can easily be learned)
+    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 BE_2 ADJ_2 ADP_3 ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 ', r' ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 , ADJ_NOUN_4 BE_2 ADJ_2 ', (1.0, 0.9)), #impl
+    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 ADV_VERB_2 PRT_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 BE_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
     #subject-predicate-object relations to Narsese:
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
@@ -99,15 +107,21 @@ def sentence_and_types(text):
         lasttoken = token
     return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
 
+#NAL Deduction truth function
+def deduction(Ta, Tb):
+    return [Ta[0]*Tb[0], Ta[0]*Tb[0]*Ta[1]*Tb[1]]
+
 #Return the concrete word (compound) term
-def getWordTerm(term):
-    for (schema, compound, _) in TermRepresentRelations:
+def getWordTerm(term, curTruth):
+    for (schema, compound, Truth) in TermRepresentRelations:
         m = re.match(schema, term)
         if not m:
             continue
+        curTruth[:] = deduction(curTruth, Truth)
         modifier = term.split("_")[0] + "_" + m.group(1)
         atomic =  term.split("_")[1] + "_" + m.group(1)
         if modifier in wordType:
+            if "verbose" in sys.argv: print("//Using " + str((schema, compound, Truth))) 
             term = compound % (wordType[modifier], wordType[atomic]) 
         else:
             term = atomic
@@ -115,14 +129,19 @@ def getWordTerm(term):
 
 #Apply syntactical reductions and wanted represent relations
 def reduceTypetext(typetext, applyStatementRepresentRelations = False, applyTermRepresentRelations = False):
-    for (a,b) in SyntacticalTransformations:
+    curTruth = [1.0, 0.9]
+    for (a, b) in SyntacticalTransformations:
         typetext = re.sub(a, b, typetext)
     if applyStatementRepresentRelations:
-        for (a,b,_) in StatementRepresentRelations:
-            typetext = re.sub(a, b, typetext)
+        for (a, b, Truth) in StatementRepresentRelations:
+            typetext_new = re.sub(a, b, typetext)
+            if typetext_new != typetext:
+                if "verbose" in sys.argv: print("//Using " + str((a, b, Truth)))
+                typetext = typetext_new
+                curTruth = deduction(curTruth, Truth)
         if applyTermRepresentRelations:
-            return " ".join([getWordTerm(x) for x in typetext.split(" ")])
-    return typetext
+            typetext = " ".join([getWordTerm(x, curTruth) for x in typetext.split(" ")])
+    return typetext, curTruth
 
 #Learn grammar pattern by building correspondence between the words&types in the example sentences with the ones in the sentence which wasn't understood 
 def GrammarLearning(y):
@@ -135,9 +154,9 @@ def GrammarLearning(y):
             if s.strip() == "":
                 break
             L.append(sentence_and_types(s)[0])
-        mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x) for x in part.split(" ") if x.strip() != "" and x in typeWord]) + " ") for part in L])
+        mapped = ",".join([reduceTypetext(" " + " ".join([typeWord.get(x) for x in part.split(" ") if x.strip() != "" and x in typeWord]) + " ")[0] for part in L])
         if mapped.strip() != "":
-            REPRESENT = ( reduceTypetext(typetextReduced), mapped, (1.0, 0.45))
+            REPRESENT = ( reduceTypetext(typetextReduced)[0], mapped, (1.0, 0.45))
             print("//Added REPRESENT relation: " + str(REPRESENT))
             sys.stdout.flush()
             StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
@@ -161,18 +180,19 @@ while True:
     wordType = dict(zip(typetext.split(" "), sentence.split(" "))) #mappings like cat -> NOUN_1
     typeWord = dict(zip(sentence.split(" "), typetext.split(" "))) #mappings like NOUN1 -> cat
     #Transformed typetext taking syntatical relations and represent relations into account:
-    typetextReduced =  reduceTypetext(typetext)
-    typetextNarsese =  reduceTypetext(typetext, applyStatementRepresentRelations = True)
-    typetextConcrete = reduceTypetext(typetext, applyStatementRepresentRelations = True, applyTermRepresentRelations = True).split(" , ")
+    (typetextReduced,    _  ) = reduceTypetext(typetext)
+    (typetextNarsese,    _  ) = reduceTypetext(typetext, applyStatementRepresentRelations = True)
+    (typetextConcrete, Truth) = reduceTypetext(typetext, applyStatementRepresentRelations = True, applyTermRepresentRelations = True)
     print("//" + sentence, "\n//" + typetext, "\n//" + typetextNarsese)
     sys.stdout.flush()
     #Check if one of the output representations wasn't fully transformed and demands grammar learning:
     Input = True
-    for y in typetextConcrete:
+    for y in typetextConcrete.split(" , "):
         if GrammarLearning(y.strip()):
             Input = False
     #If not we can output the Narsese events for NARS to consume:
     if Input:
-        for y in typetextConcrete:
-            print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1"))
+        for y in typetextConcrete.split(" , "):
+            TruthString = "" if "DefaultTruth" in sys.argv else " {" + str(Truth[0]) + ", " + str(Truth[1]) + "}"
+            print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1") + TruthString)
             sys.stdout.flush()
