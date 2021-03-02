@@ -55,8 +55,8 @@ SyntacticalTransformations = [
 
 TermRepresentRelations = [
     #subject, predicate, object encoding
-    (r"ADJ_NOUN_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9)),
-    (r"ADV_VERB_([0-9]*)", "([ %s ] & %s )", (1.0, 0.9))
+    (r"ADJ_NOUN_([0-9]*)", "([ %s ] & %s )", (1.0, 0.99)),
+    (r"ADV_VERB_([0-9]*)", "([ %s ] & %s )", (1.0, 0.99))
 ]
 
 StatementRepresentRelations = [
@@ -68,11 +68,11 @@ StatementRepresentRelations = [
     (r' ADJ_NOUN_1 BE_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
     (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
     #subject-predicate-object relations to Narsese:
-    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.9)),
-    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.9))
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.99)),
+    (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.99)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.99)),
+    (r" ADJ_NOUN_([0-9]*) ADP_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADP_\2 > ", (1.0, 0.99)),
+    (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_([0-9]*) ", r" <( ADJ_NOUN_\1 * [ ADJ_\3 ] ) --> ADV_VERB_\2 > ", (1.0, 0.99))
 ]
 
 #convert universal tag set to the wordnet word types
@@ -121,7 +121,7 @@ def getWordTerm(term, curTruth):
         modifier = term.split("_")[0] + "_" + m.group(1)
         atomic =  term.split("_")[1] + "_" + m.group(1)
         if modifier in wordType:
-            if "verbose" in sys.argv: print("//Using " + str((schema, compound, Truth))) 
+            if "verbose" in sys.argv: print("// Using " + str((schema, compound, Truth))) 
             term = compound % (wordType[modifier], wordType[atomic]) 
         else:
             term = atomic
@@ -136,7 +136,7 @@ def reduceTypetext(typetext, applyStatementRepresentRelations = False, applyTerm
         for (a, b, Truth) in StatementRepresentRelations:
             typetext_new = re.sub(a, b, typetext)
             if typetext_new != typetext:
-                if "verbose" in sys.argv: print("//Using " + str((a, b, Truth)))
+                if "verbose" in sys.argv: print("// Using " + str((a, b, Truth)))
                 typetext = typetext_new
                 curTruth = deduction(curTruth, Truth)
         if applyTermRepresentRelations:
