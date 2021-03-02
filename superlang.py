@@ -25,9 +25,9 @@
 # >English input channel for OpenNARS for Applications<
 #  A shallow semantic parser with basic grammar learning ability
 #  by using NAL REPRESENT relations.
-#  Usage: python3 superlang.py [verbose] [DefaultTruth]
+#  Usage: python3 superlang.py [verbose] [OutputTruth]
 #  where verbose lets it show what language knowledge is utilized
-#  and DefaultTruth omits the calculated truth value in the output
+#  and OutputTruth passes on the calculated truth value to the output
  
 import re
 import sys
@@ -63,12 +63,12 @@ TermRepresentRelations = [
 StatementRepresentRelations = [
     #syntactic transformations: (these are all optional as they can easily be learned)
     (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.9)),
-    (r' ADJ_NOUN_1 BE_2 ADJ_2 ADP_3 ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 ', r' ADJ_NOUN_3 ADV_VERB_4 ADJ_NOUN_4 , ADJ_NOUN_4 BE_2 ADJ_2 ', (1.0, 0.9)), #impl
-    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 BE_2 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
     (r' ADJ_NOUN_1 ADV_VERB_2 PRT_2 ADJ_NOUN_2 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ', (1.0, 0.9)),
     (r' ADJ_NOUN_1 BE_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
-    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 , ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
+    (r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 ADP_3 ADJ_NOUN_3 ', r' ADJ_NOUN_1 ADV_VERB_2 ADJ_NOUN_2 , ADJ_NOUN_1 ADP_3 ADJ_NOUN_3 ', (1.0, 0.9)),
     #subject-predicate-object relations to Narsese:
+    (r"\A(.*) IF_([0-9]*) (.*)\Z", r" < \3 =/> \1 > ", (1.0, 0.90)),
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_NOUN_([0-9]*) ", r" < ADJ_NOUN_\1 --> ADJ_NOUN_\3 > ", (1.0, 0.99)),
     (r" ADJ_NOUN_([0-9]*) BE_([0-9]*) ADJ_([0-9]*) ", r" < ADJ_NOUN_\1 --> [ ADJ_\3 ]> ", (1.0, 0.99)),
     (r" ADJ_NOUN_([0-9]*) ADV_VERB_([0-9]*) ADJ_NOUN_([0-9]*) ", r" <( ADJ_NOUN_\1 * ADJ_NOUN_\3 ) --> ADV_VERB_\2 > ", (1.0, 0.99)),
@@ -97,15 +97,16 @@ def sentence_and_types(text):
     lemma = WordNetLemmatizer()
     tokens = [lemma.lemmatize(word, pos = wordnet_tag(wordtypes[word])) for word in tokens]
     wordtypes = dict([(tokens[i], wordtypes_ordered[i][1]) for i in range(len(tokens))])
-    wordtypes = {key : ("BE" if key == "be" else ("NOUN" if value=="PRON" else value)) for (key,value) in wordtypes.items()}
+    wordtypes = {key : ("BE" if key == "be" else ("IF" if key == "if" else ("NOUN" if value=="PRON" else value))) for (key,value) in wordtypes.items()}
     indexed_wordtypes = []
     i = 0
     lasttoken = None
     for token in tokens:
-        if lasttoken == None or wordtypes[lasttoken] == "NOUN" or wordtypes[token] == "ADP": #adjectives don't cross these
+        if lasttoken == None or wordtypes[lasttoken] == "NOUN" or wordtypes[token] == "ADP" or wordtypes[token] == "IF": #adjectives don't cross these
             i += 1 #each noun or new article ends previous ADJ_NOUN index
         indexed_wordtypes.append(wordtypes[token] + "_" + str(i))
         lasttoken = token
+    print("//Word types: " + str(wordtypes))
     return " " + " ".join(tokens) + " ", " " + " ".join(indexed_wordtypes) + " "
 
 #NAL Deduction truth function
@@ -147,11 +148,14 @@ def reduceTypetext(typetext, applyStatementRepresentRelations = False, applyTerm
 #Learn grammar pattern by building correspondence between the words&types in the example sentences with the ones in the sentence which wasn't understood 
 def GrammarLearning(y):
     global StatementRepresentRelations
-    if not y.strip().startswith("<") or not y.strip().endswith(">") or y.strip().count("<") > 1: #Only if not fully encoded/valid Narsese
-        print("// What? Tell \"" + sentence.strip() + "\" in simple sentences:")
+    if not y.startswith("<") or not y.endswith(">") or (y.count("<") > 1 and not "=/>" in y): #Only if not fully encoded/valid Narsese
+        print("//What? Tell \"" + sentence.strip() + "\" in simple sentences:")
         L = []
         while True:
-            s = " " + input().rstrip("\n") + " "
+            try:
+                s = " " + input().rstrip("\n") + " "
+            except:
+                exit(0)
             if s.strip() == "":
                 break
             L.append(sentence_and_types(s)[0])
@@ -166,7 +170,10 @@ def GrammarLearning(y):
 
 while True:
     #Get input line and forward potential command
-    line = input().rstrip("\n") #"the green cat quickly eats the yellow mouse in the old house"
+    try:
+        line = input().rstrip("\n") #"the green cat quickly eats the yellow mouse in the old house"
+    except:
+        exit(0)
     isQuestion = line.endswith("?")
     isCommand = line.startswith("*") or line.startswith("//") or line.isdigit() or line.startswith('(') or line.startswith('<')
     isNegated = " not " in (" " + line + " ")
@@ -174,6 +181,7 @@ while True:
         print(line)
         sys.stdout.flush()
         continue
+    print("//Input sentence: " + line)
     #it's a sentence, postag and bring it into canonical representation using Wordnet lemmatizer:
     sentence = " " + line.replace("?", "").replace(".", "").replace(",", "").replace(" not ", " ") + " "
     s_and_T = sentence_and_types(sentence)
@@ -185,7 +193,7 @@ while True:
     (typetextReduced,    _  ) = reduceTypetext(typetext)
     (typetextNarsese,    _  ) = reduceTypetext(typetext, applyStatementRepresentRelations = True)
     (typetextConcrete, Truth) = reduceTypetext(typetext, applyStatementRepresentRelations = True, applyTermRepresentRelations = True)
-    print("//" + sentence, "\n//" + typetext, "\n//" + typetextNarsese)
+    print("//Lemmatized sentence: " + sentence, "\n//Typetext: " + typetext, "\n//Typetext Narsese:" + typetextNarsese)
     sys.stdout.flush()
     #Check if one of the output representations wasn't fully transformed and demands grammar learning:
     Input = True
@@ -195,7 +203,7 @@ while True:
     #If not we can output the Narsese events for NARS to consume:
     if Input:
         for y in typetextConcrete.split(" , "):
-            TruthString = "" if "DefaultTruth" in sys.argv else " {" + str(Truth[0]) + ", " + str(Truth[1]) + "}"
-            statement = "(! " + y.strip() + ")" if isNegated else y.strip()
-            print((statement + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1") + TruthString)
+            TruthString = "" if "OutputTruth" not in sys.argv else " {" + str(Truth[0]) + " " + str(Truth[1]) + "}"
+            statement = "(! " + y + ")" if isNegated else " " + y + " "
+            print((statement.replace(" what "," ?1 ").replace(" who "," ?1 ").replace(" it ", " $1 ").strip() + ("? :|:" if isQuestion else ". :|:")) + TruthString)
             sys.stdout.flush()
