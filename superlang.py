@@ -139,15 +139,22 @@ def GrammarLearning(y):
         if mapped.strip() != "":
             REPRESENT = ( reduceTypetext(typetextReduced), mapped, (1.0, 0.45))
             print("//Added REPRESENT relation: " + str(REPRESENT))
+            sys.stdout.flush()
             StatementRepresentRelations = [REPRESENT] + StatementRepresentRelations
         return True
     return False
 
 while True:
-    #Get sentence, postag and bring it into canonical representation using Wordnet lemmatizer:
-    line = " " + input().rstrip("\n") + " " #" the green cat quickly eats the yellow mouse in the old house "
-    isQuestion = line.strip().endswith("?")
-    sentence = line.replace("?", "").replace(".", "").replace(",", "")
+    #Get input line and forward potential command
+    line = input().rstrip("\n") #"the green cat quickly eats the yellow mouse in the old house"
+    isQuestion = line.endswith("?")
+    isCommand = line.startswith("*") or line.startswith("//") or line.isdigit() or line.startswith('(') or line.startswith('<')
+    if isCommand:
+        print(line)
+        sys.stdout.flush()
+        continue
+    #it's a sentence, postag and bring it into canonical representation using Wordnet lemmatizer:
+    sentence = " " + line.replace("?", "").replace(".", "").replace(",", "") + " "
     s_and_T = sentence_and_types(sentence)
     sentence = s_and_T[0] # canonical sentence (with lemmatized words)
     typetext = s_and_T[1] #" DET_1 ADJ_1 NOUN_1 ADV_2 VERB_2 DET_2 ADJ_2 NOUN_2 ADP_3 DET_3 ADJ_3 NOUN_3 "
@@ -158,6 +165,7 @@ while True:
     typetextNarsese =  reduceTypetext(typetext, applyStatementRepresentRelations = True)
     typetextConcrete = reduceTypetext(typetext, applyStatementRepresentRelations = True, applyTermRepresentRelations = True).split(" , ")
     print("//" + sentence, "\n//" + typetext, "\n//" + typetextNarsese)
+    sys.stdout.flush()
     #Check if one of the output representations wasn't fully transformed and demands grammar learning:
     Input = True
     for y in typetextConcrete:
@@ -167,3 +175,4 @@ while True:
     if Input:
         for y in typetextConcrete:
             print((y.strip() + ("?. :|:" if isQuestion else ". :|:")).replace("what","?1").replace("who","?1"))
+            sys.stdout.flush()
